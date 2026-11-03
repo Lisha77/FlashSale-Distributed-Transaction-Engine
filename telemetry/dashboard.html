@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Flash sale: what the database is doing</title>
+<style>
+:root{--paper:#eef1f5;--panel:#fbfcfd;--ink:#1b2433;--mute:#667085;--line:#d5dbe4;
+--n0:#3b5bdb;--n1:#0b8f7a;--n2:#c2410c;--ok:#15803d;--bad:#b42318;--warn:#b7791f;
+--tpc:#6d4fd6;--s2pl:#b7791f;--wal:#0b74b8;--route:#0b8f7a;--store:#b83280}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font:14px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
+.mono,td.m,.wal{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+header{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:center;padding:12px 20px;border-bottom:1px solid var(--line);background:var(--panel)}
+h1{font:600 18px/1.2 Georgia,"Iowan Old Style",serif;margin:0 auto 0 0}
+label{color:var(--mute);font-size:13px}
+select,button{font:inherit;padding:5px 8px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--ink)}
+button{background:var(--ink);color:#fff;border-color:var(--ink);cursor:pointer}
+button:disabled{opacity:.45;cursor:default}
+button:focus-visible,select:focus-visible,summary:focus-visible{outline:2px solid var(--n0);outline-offset:2px}
+#conn{font-size:12px;color:var(--mute)} #conn.on{color:var(--ok)}
+#banner{padding:10px 20px;background:#fff;border-bottom:1px solid var(--line)}
+#banner b{font:600 16px Georgia,serif} #banner span.k{display:inline-block;margin-left:8px;padding:0 8px;border-radius:10px;background:var(--ink);color:#fff;font-size:11px}
+#banner p{margin:4px 0 0;max-width:110ch;color:#3a4558}
+details{padding:6px 20px;border-bottom:1px solid var(--line);background:var(--panel);color:var(--mute)}
+summary{cursor:pointer;color:var(--ink)} details p{margin:6px 0;max-width:100ch}
+.tag{display:inline-block;padding:0 6px;border-radius:4px;color:#fff;font-size:11px;font-weight:600;margin-right:6px;white-space:nowrap}
+main{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:14px;padding:14px 20px}
+@media(max-width:1000px){main{grid-template-columns:1fr}}
+section{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px;min-width:0;margin-bottom:14px}
+main>div>section:last-child{margin-bottom:0}
+h2{font-size:14px;margin:0 0 8px;font-weight:600}
+h2 small{color:var(--mute);font-weight:400;margin-left:6px}
+#stage{position:relative}
+#coord{width:300px;max-width:100%;margin:0 auto 40px;border:2px solid var(--ink);border-radius:8px;padding:8px 12px;text-align:center;background:#fff}
+#coord.down{border-color:var(--bad);border-style:dashed;background:#fde7e4}
+#coord span{display:block;color:var(--mute);font-size:12px}
+#nodes{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+.node{border:2px solid var(--c);border-radius:8px;padding:8px;background:#fff}
+.node.down{border-style:dashed;background:#fde7e4}
+.node h3{margin:0 0 6px;font-size:13px;color:var(--c);display:flex;justify-content:space-between}
+.node h3 i{font-style:normal;font-size:11px;color:#fff;background:var(--ok);padding:0 6px;border-radius:8px}
+.node.down h3 i{background:var(--bad)}
+.items{display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:5px}
+.item{border:1px solid var(--line);border-radius:5px;padding:4px 6px;font-size:11px;background:var(--paper);min-height:62px}
+.item b{font-weight:600;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.item .stk{float:right;font-weight:700;font-size:18px;line-height:1}
+.bar{height:3px;background:var(--line);margin:4px 0;border-radius:2px;overflow:hidden}
+.bar u{display:block;height:100%;background:var(--c)}
+.item em{display:block;font-style:normal;color:var(--mute);font-size:10px}
+.item.locked{background:#fff3d6;border-color:var(--warn)} .item.locked em.l{color:var(--warn);font-weight:600}
+.item.held{box-shadow:inset 0 0 0 2px #e9d5ff}
+.item.flash{animation:fl .8s} .item.off{background:#fde7e4;border-color:var(--bad)}
+@keyframes fl{from{background:#c9f2d9}to{background:var(--paper)}}
+.pkt{position:absolute;width:12px;height:12px;border-radius:50%;margin:-6px 0 0 -6px;pointer-events:none;z-index:5;box-shadow:0 0 0 3px #fff}
+.scroll{overflow:auto;max-height:330px}
+table{border-collapse:collapse;width:100%;font-size:12px}
+th{text-align:left;color:var(--mute);font-weight:500;padding:3px 6px;position:sticky;top:0;background:var(--panel)}
+td{padding:3px 6px;border-top:1px solid var(--line);white-space:nowrap}
+tr.sel{background:#e8eefc} tr[data-t]{cursor:pointer}
+.chips{display:inline-flex;gap:2px}
+.chips i{width:36px;height:16px;border-radius:3px;background:var(--line);font:600 9px/16px system-ui;color:#fff;text-align:center;font-style:normal}
+.chips i.on{background:var(--ink)} .chips i.bad{background:var(--bad)} .chips i.good{background:var(--ok)} .chips i.wait{background:var(--warn)}
+.st{font-weight:600} .st.ok{color:var(--ok)} .st.warn{color:var(--warn)} .st.bad{color:var(--bad)}
+.rc{border-left:4px solid var(--line);padding:4px 8px;margin-bottom:6px;background:#fff;border-radius:0 6px 6px 0}
+.rc.ok{border-color:var(--ok)} .rc.warn{border-color:var(--warn)} .rc.bad{border-color:var(--bad)}
+.rc small{color:var(--mute)} .rc div{margin-top:2px}
+#feed{max-height:380px;overflow:auto}
+.f{padding:5px 0;border-top:1px solid var(--line)} .f:first-child{border-top:0}
+.f .t{color:var(--mute);font-size:11px;margin-left:4px}
+.tabs{display:flex;gap:4px;margin-bottom:6px;flex-wrap:wrap} .tabs button{background:#fff;color:var(--ink);padding:2px 10px;font-size:12px} .tabs button.on{background:var(--ink);color:#fff}
+.wal td{font-size:11px}
+.rec .ln{padding:2px 0;font-size:12px}
+.empty{color:var(--mute);padding:6px 0}
+#verdict{padding:8px 10px;border-radius:6px;margin-top:8px;background:var(--paper)} #verdict.ok{background:#e1f5e8;color:var(--ok)} #verdict.bad{background:#fde7e4;color:var(--bad)}
+#filter{color:var(--mute);font-size:12px;margin-left:8px} #filter a{color:var(--n0);cursor:pointer}
+@media(prefers-reduced-motion:reduce){.item.flash{animation:none}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Flash sale: what the database is doing</h1>
+  <label>Speed <select id="speed"><option value="0.6">Slow</option><option value="0.3" selected>Normal</option><option value="0.1">Fast</option></select></label>
+  <button id="go">Start flash sale</button>
+  <span id="conn">connecting</span>
+</header>
+<div id="banner"><b>Press Start</b><p>22 orders from customers in different regions hit 6 items on 3 nodes. The scenario then forces lock contention, a partial-stock order, a cart spanning two nodes, a deadlock, a node crash and a coordinator crash. Everything the engine does appears below as it happens.</p></div>
+<details>
+  <summary>How to read this page</summary>
+  <p><span class="tag" style="background:var(--route)">Route</span>The router finds which node holds each item (query localization). <span class="tag" style="background:var(--tpc)">2PC</span>Two-phase commit: ask every node to PREPARE and vote, then the coordinator logs one decision (COMMIT or ABORT) and tells everyone. The coordinator's COMMIT log line is the commit point.</p>
+  <p><span class="tag" style="background:var(--s2pl)">S2PL</span>Strict two-phase locking: exclusive lock on an item until commit or abort. <span class="tag" style="background:var(--wal)">WAL</span>Write-ahead log: undo and redo values are logged before stock changes. <span class="tag" style="background:var(--store)">Stock</span>Changes to the stock numbers. <span class="tag" style="background:var(--bad)">Crash</span>and <span class="tag" style="background:var(--ok)">Recovery</span>Failures, and how the log repairs them.</p>
+  <p>On each item tile: the big number is stock left, "sold" is committed sales, "held" is stock reserved by an order that has not committed yet. A red tile means sold + held + left no longer equals the starting stock, which is expected only while a crashed node has not recovered. Click a transaction row to follow just that order.</p>
+</details>
+<main>
+  <div>
+    <section>
+      <h2>Cluster and live stock <small>dots: purple = coordinator message, green = yes/commit, red = no/abort</small></h2>
+      <div id="stage">
+        <div id="coord"><b>Coordinator</b><span id="coordsub">waiting</span></div>
+        <div id="nodes"><div class="empty">Items appear here, grouped by the node K-Means assigned them to.</div></div>
+      </div>
+    </section>
+    <section>
+      <h2>Transactions <small>newest first, click one to follow it</small></h2>
+      <div class="scroll"><table><thead><tr><th>Txn</th><th>Customer</th><th>Cart</th><th>Progress</th><th>Outcome</th></tr></thead><tbody id="txns"></tbody></table></div>
+    </section>
+    <section>
+      <h2>Audit <small>two independent recounts of the stock when the sale ends</small></h2>
+      <div id="audit" class="empty">Runs after the last order and recovery finish.</div>
+    </section>
+  </div>
+  <div>
+    <section>
+      <h2>What each customer sees</h2>
+      <div id="rcs" class="scroll"><div class="empty">Receipts appear as orders finish.</div></div>
+    </section>
+    <section>
+      <h2>Narrator <small>what just happened, and why</small><span id="filter"></span></h2>
+      <div id="feed"><div class="empty">Events show up here in plain language.</div></div>
+    </section>
+    <section>
+      <h2>Write-ahead logs <small>the same lines written to logs/*.log</small></h2>
+      <div class="tabs" id="tabs"></div>
+      <div class="scroll"><table class="wal"><thead><tr><th>LSN</th><th>Txn</th><th>Type</th><th>Item</th><th>Undo</th><th>Redo</th></tr></thead><tbody id="wal"></tbody></table></div>
+    </section>
+    <section>
+      <h2>Crash recovery <small>analysis, redo, undo</small></h2>
+      <div id="rec" class="rec"><div class="empty">Nothing has crashed yet.</div></div>
+    </section>
+  </div>
+</main>
+<script>
+const $=s=>document.querySelector(s);
+const sh=t=>t?String(t).replace('TXN-',''):'';
+const COL={Act:'--ink',Route:'--route','2PC':'--tpc',S2PL:'--s2pl',WAL:'--wal',Stock:'--store',Crash:'--bad',Recovery:'--ok',Audit:'--n0'};
+const CH=['Order','Lock','Check','WAL','Vote','Decide','Apply','Done'];
+const TONE={confirmed:'ok',finalizing:'warn',pending:'warn',busy:'warn',partial:'bad',soldout:'bad',unavailable:'bad',retry:'bad'};
+const SLAB={confirmed:'Confirmed',finalizing:'Finalizing',pending:'Processing',busy:'Try again',partial:'Not enough stock',soldout:'Sold out',unavailable:'Unavailable',retry:'Not placed'};
+let S,SLOW=0.3,dirty=false,pend=false,flashT={};
+function reset(){S={items:{},nodes:{},up:{},locks:{},waiters:{},txns:new Map(),feed:[],wal:{},rec:[],rc:new Map(),act:null,nact:0,audit:null,sel:null,tab:'coordinator',running:false,coordDown:null,ok:0,ab:0,end:false}}
+reset();
+const L=i=>S.items[i]?S.items[i].label:i;
+const T=id=>{let t=S.txns.get(id);if(!t){t={id,cust:'',region:'',cart:[],nodes:[],c:{}};S.txns.set(id,t)}return t};
+const setC=(t,n,v)=>{if(t.c[n]!=='bad')t.c[n]=v};
+const say=(tag,txn,html)=>{S.feed.push({tag,txn,html});if(S.feed.length>700)S.feed.shift()};
+const cartText=c=>c.map(x=>`${x.qty} × ${L(x.item_id)}`).join(' + ');
+const cv=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+function packet(a,b,color,rev){
+  const A=document.getElementById(a),B=document.getElementById(b),st=$('#stage');
+  if(!A||!B||st.querySelectorAll('.pkt').length>30)return;
+  const s=st.getBoundingClientRect(),ra=A.getBoundingClientRect(),rb=B.getBoundingClientRect();
+  const p1={x:ra.left+ra.width/2-s.left,y:ra.bottom-s.top},p2={x:rb.left+rb.width/2-s.left,y:rb.top-s.top};
+  const [f,t]=rev?[p2,p1]:[p1,p2];
+  const d=document.createElement('i');d.className='pkt';d.style.background=color;d.style.left=f.x+'px';d.style.top=f.y+'px';st.appendChild(d);
+  d.animate([{transform:'translate(0,0)'},{transform:`translate(${t.x-f.x}px,${t.y-f.y}px)`}],{duration:Math.max(350,SLOW*1800),easing:'ease-in-out'}).onfinish=()=>d.remove();
+}
+function nodeItems(n){return Object.keys(S.items).filter(i=>S.items[i].node===n)}
+function handle(e){
+  const live=Date.now()/1000-(e.bus_time||0)<2,nid=n=>'node-'+n,id=e.txn_id,t=id?T(id):null;
+  switch(e.event){
+  case 'RESET':reset();S.running=true;break;
+  case 'ACT':S.act=e;S.nact++;say('Act','',`<b>${e.title}.</b> ${e.text}`);break;
+  case 'TOPOLOGY':for(const n in e.nodes){S.nodes[n]=1;S.up[n]=true;for(const i in e.nodes[n])S.items[i]={label:e.nodes[n][i].label,node:n,init:e.nodes[n][i].stock,left:e.nodes[n][i].stock,sold:0,res:0}}break;
+  case 'ORDER':t.cust=e.customer;t.region=e.region;t.cart=e.cart;t.nodes=[...new Set(e.cart.map(c=>c.node))];setC(t,'Order','on');
+    say('Route',id,`<b>${e.customer}</b> (${e.region}, ${Math.round(e.latency*1000)} ms away) orders ${cartText(e.cart)}. The router finds the items on <b>${t.nodes.join(' and ')}</b>${t.nodes.length>1?', so this is a cross-node transaction with two participants':''}.${e.fault==='node_crash'?' <i>(Scripted: the node will crash after the commit decision.)</i>':''}${e.fault==='coord_crash'?' <i>(Scripted: the coordinator will crash before deciding.)</i>':''}${e.ordered===false?' <i>(Scripted: this cart locks items in a bad order.)</i>':''}`);break;
+  case 'PREPARE_SENT':say('2PC',id,`Phase 1: coordinator sends PREPARE to ${e.node}: "can you do your part? Lock it, check it, log it, then vote."`);if(live)packet('coord',nid(e.node),cv('--tpc'));break;
+  case 'LOCK_WAIT':setC(t,'Lock','wait');(S.waiters[e.resource_id]??={})[id]=1;
+    say('S2PL',id,`<b>${L(e.resource_id)}</b> is X-locked by order ${sh(e.holder)}, so this order waits. Under strict 2PL nobody else may touch the item until the holder commits or aborts.`);break;
+  case 'ACQUIRE_X':setC(t,'Lock','on');S.locks[e.resource_id]=id;if(S.waiters[e.resource_id])delete S.waiters[e.resource_id][id];
+    say('S2PL',id,`Exclusive lock on <b>${L(e.resource_id)}</b> granted${e.waited>0.15?` after waiting ${e.waited}s`:''}. It is held until this order commits or aborts.`);break;
+  case 'LOCK_TIMEOUT':t.c.Lock='bad';if(S.waiters[e.resource_id])delete S.waiters[e.resource_id][id];
+    say('S2PL',id,`Gave up waiting for <b>${L(e.resource_id)}</b> (lock timeout). Timeouts are how this engine breaks deadlocks and stops waiting on a dead holder. The node will vote ABORT.`);break;
+  case 'NODE_CHECK':setC(t,'Check',e.ok?'on':'bad');
+    say('Stock',id,`${e.node} checks ${L(e.item_id)}: has <b>${e.have}</b>, wants <b>${e.want}</b>. ${e.ok?'Enough. The lock guarantees nobody changes it meanwhile (isolation).':'Not enough, so this node must vote ABORT.'}`);break;
+  case 'WAL':(S.wal[e.log]??=[]).push(e);
+    if(e.op==='PREPARE_UPDATE'){setC(t,'WAL','on');say('WAL',id,`${e.log} writes to its log <i>before</i> changing stock: undo = ${e.undo} (old), redo = ${e.redo} (new). This is the write-ahead rule.`)}
+    else say('WAL',id,{BEGIN:'Coordinator logs BEGIN: this transaction exists.',COMMIT:e.log==='coordinator'?'Coordinator logs <b>COMMIT</b>. This is the <b>commit point</b>: once this line is on disk the order is guaranteed, even through a crash.':`${e.log} logs COMMIT and then releases its locks.`,ABORT:e.log==='coordinator'?'Coordinator logs <b>ABORT</b>.':`${e.log} logs ABORT after undoing its change.`}[e.op]||'');break;
+  case 'STOCK':{const it=S.items[e.item_id];if(!it)break;it.left=e.new;flashT[e.item_id]=1;setTimeout(()=>{delete flashT[e.item_id];dirty=true;sched()},800);
+    if(e.why==='reserve'){it.res+=e.old-e.new;say('Stock',id,`${L(e.item_id)} goes ${e.old} to ${e.new} as a <b>tentative</b> change. The lock protects it, and it only becomes permanent if the coordinator commits.`)}
+    else if(e.why==='undo'){it.res-=e.new-e.old;say('Stock',id,`<b>UNDO.</b> ${L(e.item_id)} restored ${e.old} to ${e.new}, as if this order never happened (atomicity).`)}
+    else say('Stock',id,`<b>REDO.</b> Replaying the log sets ${L(e.item_id)} to ${e.new} (durability: the log survived, the data pages did not).`);break}
+  case 'VOTE_RECEIVED':{const ok=e.vote==='VOTE_COMMIT';setC(t,'Vote',ok?'on':'bad');if(!ok&&e.reason==='INSUFFICIENT_STOCK')t.c.Check='bad';if(!ok&&e.reason==='NODE_DOWN')t.c.Lock='bad';
+    const d=e.detail||{};say('2PC',id,ok?`${e.node} votes <b>COMMIT</b>: locked, enough stock, change logged.`:`${e.node} votes <b>ABORT</b> (${e.reason==='LOCK_TIMEOUT'?'could not get the lock':e.reason==='INSUFFICIENT_STOCK'?`only ${d.have} of ${L(d.item)}, needs ${d.want}`:'node is down, no answer'}).${t.nodes.length>1?' The coordinator stops asking: one NO is enough.':''}`);
+    if(live)packet('coord',nid(e.node),cv(ok?'--ok':'--bad'),true);break}
+  case 'DECISION_COMMIT':t.c.Decide='good';S.ok++;say('2PC',id,`Phase 2: every participant voted COMMIT, so the decision is <b>GLOBAL_COMMIT</b>. The coordinator sends it to ${e.nodes.join(', ')}.`);if(live)e.nodes.forEach(n=>packet('coord',nid(n),cv('--ok')));break;
+  case 'DECISION_ABORT':t.c.Decide='bad';S.ab++;say('2PC',id,e.reason==='PRESUMED_ABORT'?'Recovery finds BEGIN but no decision in the coordinator log. Rule: no decision means <b>abort</b> (presumed abort).':`Phase 2: at least one vote was NO, so the decision is <b>GLOBAL_ABORT</b>. Atomicity: all items or none.${e.nodes.length?' '+e.nodes.join(', ')+' already said yes and must now undo.':''}`);if(live)e.nodes.forEach(n=>packet('coord',nid(n),cv('--bad')));break;
+  case 'NODE_COMMITTED':setC(t,'Apply','on');e.items.forEach(x=>{const it=S.items[x.item_id];if(it){it.sold+=x.qty;if(!e.recovered)it.res-=x.qty}});say('2PC',id,`${e.node} makes the reservation permanent and releases the locks. Only now may other orders touch these items (strict 2PL).`);break;
+  case 'NODE_ABORTED':setC(t,'Apply','on');break;
+  case 'DELIVERY_FAILED':say('Crash',id,`The coordinator already logged the decision but ${e.node} is down and cannot hear it. The decision is durable, so it will be delivered when the node recovers.`);break;
+  case 'NODE_CRASH':S.up[e.node]=false;nodeItems(e.node).forEach(i=>{const it=S.items[i];it.left=e.reverted[i];it.res=0;delete S.locks[i];delete S.waiters[i]});
+    say('Crash','',`<b>${e.node} crashes.</b> Memory is gone: the lock table, uncommitted changes and every data page not yet flushed. Only the checkpoint on disk and the write-ahead log survive. That is why the stock tiles snap back and turn red.`);break;
+  case 'COORD_CRASH':S.coordDown=id;t.c.Decide='wait';say('Crash',id,`<b>The coordinator crashes</b> after every vote was COMMIT but before logging a decision. ${e.nodes.join(', ')} voted yes, so it keeps the lock and the reserved stock and must wait. This is the blocking problem of 2PC.`);break;
+  case 'NODE_RECOVERY_START':S.rec=[{k:'h',x:`${e.node} restarts and runs ARIES recovery`}];say('Recovery','',`<b>${e.node} restarts</b> and runs recovery: analysis, then redo, then undo.`);break;
+  case 'COORD_RECOVERY_START':S.rec=[{k:'h',x:'Coordinator restarts and reads its own log'}];say('Recovery','','<b>The coordinator restarts</b> and scans its log for transactions with BEGIN but no decision.');break;
+  case 'COORD_RECOVERY':S.rec.push({k:'a',rows:e.rows,c:true});break;
+  case 'COORD_RECOVERY_END':S.coordDown=null;break;
+  case 'RECOVERY':
+    if(e.phase==='analysis'){S.rec.push({k:'a',rows:e.rows});say('Recovery','',`<b>Analysis:</b> scanned ${e.node}'s log and found ${e.rows.length} transactions. Any still PREPARED is in doubt, so the node asks the coordinator's log what was decided.`)}
+    else if(e.phase==='redo'){S.rec.push({k:'l',x:`REDO order ${sh(e.txn_id)}: set ${L(e.item_id)} to ${e.redo} (log LSN ${e.lsn}, was ${e.undo})`});say('Recovery',e.txn_id,`<b>Redo:</b> committed work is replayed from the log, in log order.`)}
+    else{S.rec.push({k:'l',x:`UNDO order ${sh(e.txn_id)} on ${L(e.item_id)}: ${e.note}`});say('Recovery',e.txn_id,`<b>Undo:</b> ${e.note}.`)}break;
+  case 'NODE_UP':S.up[e.node]=true;say('Recovery','',`${e.node} is back online, with committed work restored.`);break;
+  case 'RECEIPT':S.rc.set(id,e);t.status=e.status;t.c.Done=TONE[e.status]==='ok'?'good':TONE[e.status]==='warn'?'wait':'bad';break;
+  case 'RELEASE_X':if(S.locks[e.resource_id]===id)delete S.locks[e.resource_id];break;
+  case 'AUDIT':S.audit=e;say('Audit','',e.ok?'Audit passed: for every item, starting stock minus committed sales equals the stock on the node and also equals what replaying the logs gives.':'Audit found a mismatch.');break;
+  case 'SIM_END':S.running=false;S.end=true;break;
+  }
+  dirty=true;sched();
+}
+function sched(){if(!pend){pend=true;requestAnimationFrame(()=>{pend=false;if(dirty){dirty=false;render()}})}}
+function render(){
+  $('#go').disabled=S.running;
+  const bn=$('#banner');
+  if(S.act)bn.innerHTML=`<b>${S.act.title}</b><span class="k">${S.act.concept}</span><p>${S.act.text}</p>`;
+  const names=Object.keys(S.nodes).sort();
+  if(names.length)$('#nodes').innerHTML=names.map((n,k)=>`<div class="node${S.up[n]?'':' down'}" id="node-${n}" style="--c:var(--n${k%3})"><h3>${n}<i>${S.up[n]?'UP':'DOWN'}</i></h3><div class="items">${nodeItems(n).map(i=>{const it=S.items[i],h=S.locks[i],w=Object.keys(S.waiters[i]||{}).length,bal=it.init-it.left-it.sold-it.res;
+    return `<div class="item${h?' locked':''}${it.res?' held':''}${flashT[i]?' flash':''}${bal?' off':''}" title="${it.label}: started ${it.init}. left ${it.left} + sold ${it.sold} + held ${it.res} ${bal?'does not add up yet (crash not recovered)':'= '+it.init}"><span class="stk">${it.left}</span><b>${it.label}</b><div class="bar"><u style="width:${Math.round(100*it.left/it.init)}%"></u></div><em>sold ${it.sold} · held ${it.res}${bal?' · ⚠':''}</em>${h?`<em class="l">locked by ${sh(h)}${w?', '+w+' waiting':''}</em>`:''}</div>`}).join('')}</div></div>`).join('');
+  const all=[...S.txns.values()],open=all.filter(t=>!t.status||t.status==='pending'||t.status==='finalizing').length;
+  const co=$('#coord');co.className=S.coordDown?'down':'';
+  $('#coordsub').textContent=S.coordDown?`crashed while deciding order ${sh(S.coordDown)}`:`${all.length} orders · ${S.ok} committed · ${S.ab} aborted · ${open} open`;
+  $('#txns').innerHTML=all.slice().reverse().map(t=>`<tr data-t="${t.id}" class="${S.sel===t.id?'sel':''}"><td class="m">${sh(t.id)}</td><td>${t.cust} <small style="color:var(--mute)">${t.region}</small></td><td>${cartText(t.cart)}</td><td><span class="chips">${CH.map(c=>`<i class="${t.c[c]||''}">${c}</i>`).join('')}</span></td><td class="st ${TONE[t.status]||''}">${SLAB[t.status]||''}</td></tr>`).join('');
+  $('#rcs').innerHTML=S.rc.size?[...S.rc.values()].reverse().map(r=>`<div class="rc ${TONE[r.status]}"><small>${r.customer} · ${r.region} · order ${sh(r.txn_id)}</small><div><b class="st ${TONE[r.status]}">${SLAB[r.status]}</b>: ${r.message}</div></div>`).join(''):'<div class="empty">Receipts appear as orders finish.</div>';
+  const f=S.feed.filter(x=>!S.sel||x.txn===S.sel||!x.txn).slice(-150).reverse();
+  $('#feed').innerHTML=f.length?f.map(x=>`<div class="f"><span class="tag" style="background:var(${COL[x.tag]})">${x.tag}</span>${x.html}${x.txn?`<span class="t mono">${sh(x.txn)}</span>`:''}</div>`).join(''):'<div class="empty">No events yet.</div>';
+  $('#filter').innerHTML=S.sel?`following order ${sh(S.sel)} <a id="clr">show all</a>`:'';
+  const logs=Object.keys(S.wal).sort((a,b)=>a==='coordinator'?-1:b==='coordinator'?1:a<b?-1:1);
+  if(!logs.includes(S.tab)&&logs.length)S.tab=logs[0];
+  $('#tabs').innerHTML=logs.map(l=>`<button class="${l===S.tab?'on':''}" data-l="${l}">${l} (${S.wal[l].length})</button>`).join('');
+  $('#wal').innerHTML=(S.wal[S.tab]||[]).filter(r=>!S.sel||r.txn_id===S.sel).slice(-100).reverse().map(r=>`<tr class="${r.txn_id===S.sel?'sel':''}"><td>${r.lsn}</td><td>${sh(r.txn_id)}</td><td>${r.op}</td><td>${r.page_id?L(r.page_id):''}</td><td>${r.undo??''}</td><td>${r.redo??''}</td></tr>`).join('');
+  $('#rec').innerHTML=S.rec.length?S.rec.map(x=>x.k==='h'?`<div class="ln"><b>${x.x}</b></div>`:x.k==='l'?`<div class="ln mono">${x.x}</div>`:`<table><thead><tr><th>Order</th><th>State at crash</th>${x.c?'':'<th>Coordinator says</th>'}<th>Resolution</th></tr></thead><tbody>${x.rows.map(r=>`<tr><td>${sh(r.txn_id)}</td><td>${r.state}</td>${x.c?'':`<td>${r.coordinator}</td>`}<td>${r.resolution}</td></tr>`).join('')}</tbody></table>`).join(''):'<div class="empty">Nothing has crashed yet.</div>';
+  const A=S.audit;
+  $('#audit').className=A?'':'empty';
+  $('#audit').innerHTML=A?`<table><thead><tr><th>Item</th><th>Node</th><th>Start</th><th>Sold</th><th>Expected left</th><th>Actual left</th><th>Log replay</th><th></th></tr></thead><tbody>${A.rows.map(r=>`<tr><td>${L(r.item_id)}</td><td>${r.node}</td><td>${r.initial}</td><td>${r.sold}</td><td>${r.expected}</td><td>${r.actual}</td><td>${r.replay}</td><td class="st ${r.ok?'ok':'bad'}">${r.ok?'match':'MISMATCH'}</td></tr>`).join('')}</tbody></table><div id="verdict" class="${A.ok?'ok':'bad'}">${A.ok?'All three numbers agree for every item, even after a node crash and a coordinator crash. That is atomicity and durability working: committed sales survived, aborted and presumed-aborted orders left no trace, and nothing was oversold.':'At least one item disagrees. Look at its log.'}</div>`:'Runs after the last order and recovery finish.';
+}
+document.addEventListener('click',e=>{
+  const r=e.target.closest('tr[data-t]'),b=e.target.closest('button[data-l]');
+  if(r)S.sel=S.sel===r.dataset.t?null:r.dataset.t;else if(b)S.tab=b.dataset.l;else if(e.target.id==='clr')S.sel=null;else return;
+  dirty=true;sched();
+});
+$('#speed').onchange=()=>{SLOW=+$('#speed').value};
+$('#go').onclick=async()=>{SLOW=+$('#speed').value;$('#go').disabled=true;
+  await fetch('/api/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({tick:SLOW})})};
+const es=new EventSource('/events');
+es.onopen=()=>{$('#conn').textContent='connected';$('#conn').className='on'};
+es.onerror=()=>{$('#conn').textContent='reconnecting';$('#conn').className=''};
+es.onmessage=m=>handle(JSON.parse(m.data));
+render();
+</script>
+</body>
+</html>

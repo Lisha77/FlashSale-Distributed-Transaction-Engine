@@ -1,0 +1,12 @@
+{"lsn": 1, "prev_lsn": 0, "txn_id": "TXN-01", "type": "PREPARE_UPDATE", "page_id": "ITEM_1000", "undo": 7, "redo": 6, "status": "DURING_COMMIT", "timestamp": 1793374903.254442}
+{"lsn": 2, "prev_lsn": 0, "txn_id": "TXN-01", "type": "COMMIT", "page_id": "GLOBAL", "undo": "-", "redo": "-", "status": "DURING_COMMIT", "timestamp": 1793374904.7660196}
+{"lsn": 3, "prev_lsn": 0, "txn_id": "TXN-06", "type": "PREPARE_UPDATE", "page_id": "ITEM_1000", "undo": 6, "redo": 4, "status": "DURING_COMMIT", "timestamp": 1793374910.9927466}
+{"lsn": 4, "prev_lsn": 0, "txn_id": "TXN-06", "type": "COMMIT", "page_id": "GLOBAL", "undo": "-", "redo": "-", "status": "DURING_COMMIT", "timestamp": 1793374912.4960752}
+{"lsn": 5, "prev_lsn": 0, "txn_id": "TXN-07", "type": "PREPARE_UPDATE", "page_id": "ITEM_1000", "undo": 4, "redo": 3, "status": "DURING_COMMIT", "timestamp": 1793374912.8052676}
+{"lsn": 6, "prev_lsn": 0, "txn_id": "TXN-07", "type": "COMMIT", "page_id": "GLOBAL", "undo": "-", "redo": "-", "status": "DURING_COMMIT", "timestamp": 1793374914.316021}
+{"lsn": 7, "prev_lsn": 0, "txn_id": "TXN-08", "type": "PREPARE_UPDATE", "page_id": "ITEM_1000", "undo": 3, "redo": 2, "status": "DURING_COMMIT", "timestamp": 1793374914.6504996}
+{"lsn": 8, "prev_lsn": 0, "txn_id": "TXN-08", "type": "COMMIT", "page_id": "GLOBAL", "undo": "-", "redo": "-", "status": "DURING_COMMIT", "timestamp": 1793374916.1548703}
+{"lsn": 9, "prev_lsn": 0, "txn_id": "TXN-10", "type": "PREPARE_UPDATE", "page_id": "ITEM_1004", "undo": 1, "redo": 0, "status": "DURING_COMMIT", "timestamp": 1793374922.9923944}
+{"lsn": 10, "prev_lsn": 0, "txn_id": "TXN-10", "type": "COMMIT", "page_id": "GLOBAL", "undo": "-", "redo": "-", "status": "DURING_COMMIT", "timestamp": 1793374924.4973094}
+{"lsn": 11, "prev_lsn": 0, "txn_id": "TXN-22", "type": "PREPARE_UPDATE", "page_id": "ITEM_1000", "undo": 2, "redo": 1, "status": "DURING_COMMIT", "timestamp": 1793374986.5923495}
+{"lsn": 12, "prev_lsn": 0, "txn_id": "TXN-22", "type": "COMMIT", "page_id": "GLOBAL", "undo": "-", "redo": "-", "status": "DURING_COMMIT", "timestamp": 1793374988.0961862}

@@ -1,0 +1,16 @@
+{"lsn": 1, "prev_lsn": 0, "txn_id": "TXN-02", "type": "PREPARE_UPDATE", "page_id": "ITEM_1002", "undo": 6, "redo": 4, "status": "DURING_COMMIT", "timestamp": 1793374904.092386}
+{"lsn": 2, "prev_lsn": 0, "txn_id": "TXN-02", "type": "COMMIT", "page_id": "GLOBAL", "undo": "-", "redo": "-", "status": "DURING_COMMIT", "timestamp": 1793374905.5958254}
+{"lsn": 3, "prev_lsn": 0, "txn_id": "TXN-05", "type": "PREPARE_UPDATE", "page_id": "ITEM_1003", "undo": 3, "redo": 2, "status": "DURING_COMMIT", "timestamp": 1793374905.7513025}
+{"lsn": 4, "prev_lsn": 0, "txn_id": "TXN-05", "type": "COMMIT", "page_id": "GLOBAL", "undo": "-", "redo": "-", "status": "DURING_COMMIT", "timestamp": 1793374907.255239}
+{"lsn": 5, "prev_lsn": 0, "txn_id": "TXN-12", "type": "PREPARE_UPDATE", "page_id": "ITEM_1002", "undo": 4, "redo": 3, "status": "DURING_COMMIT", "timestamp": 1793374931.2591283}
+{"lsn": 6, "prev_lsn": 0, "txn_id": "TXN-12", "type": "COMMIT", "page_id": "GLOBAL", "undo": "-", "redo": "-", "status": "DURING_COMMIT", "timestamp": 1793374932.7745318}
+{"lsn": 7, "prev_lsn": 0, "txn_id": "TXN-13", "type": "PREPARE_UPDATE", "page_id": "ITEM_1003", "undo": 2, "redo": 1, "status": "DURING_COMMIT", "timestamp": 1793374934.1542656}
+{"lsn": 8, "prev_lsn": 0, "txn_id": "TXN-13", "type": "ABORT", "page_id": "GLOBAL", "undo": "-", "redo": "-", "status": "DURING_COMMIT", "timestamp": 1793374937.1604555}
+{"lsn": 9, "prev_lsn": 0, "txn_id": "TXN-14", "type": "PREPARE_UPDATE", "page_id": "ITEM_1002", "undo": 3, "redo": 2, "status": "DURING_COMMIT", "timestamp": 1793374941.3519113}
+{"lsn": 10, "prev_lsn": 0, "txn_id": "TXN-14", "type": "ABORT", "page_id": "GLOBAL", "undo": "-", "redo": "-", "status": "DURING_COMMIT", "timestamp": 1793374949.1802495}
+{"lsn": 11, "prev_lsn": 0, "txn_id": "TXN-15", "type": "PREPARE_UPDATE", "page_id": "ITEM_1002", "undo": 3, "redo": 2, "status": "DURING_COMMIT", "timestamp": 1793374949.4876132}
+{"lsn": 12, "prev_lsn": 0, "txn_id": "TXN-15", "type": "COMMIT", "page_id": "GLOBAL", "undo": "-", "redo": "-", "status": "DURING_COMMIT", "timestamp": 1793374950.992233}
+{"lsn": 13, "prev_lsn": 0, "txn_id": "TXN-20", "type": "PREPARE_UPDATE", "page_id": "ITEM_1003", "undo": 2, "redo": 1, "status": "DURING_COMMIT", "timestamp": 1793374981.1999962}
+{"lsn": 14, "prev_lsn": 0, "txn_id": "TXN-20", "type": "ABORT", "page_id": "GLOBAL", "undo": "-", "redo": "-", "status": "DURING_COMMIT", "timestamp": 1793374988.371754}
+{"lsn": 15, "prev_lsn": 0, "txn_id": "TXN-21", "type": "PREPARE_UPDATE", "page_id": "ITEM_1003", "undo": 2, "redo": 1, "status": "DURING_COMMIT", "timestamp": 1793374988.7063272}
+{"lsn": 16, "prev_lsn": 0, "txn_id": "TXN-21", "type": "COMMIT", "page_id": "GLOBAL", "undo": "-", "redo": "-", "status": "DURING_COMMIT", "timestamp": 1793374990.2095227}
